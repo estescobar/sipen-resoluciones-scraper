@@ -1,77 +1,100 @@
+import os
 import requests
 from bs4 import BeautifulSoup
 from PyPDF2 import PdfMerger, PdfReader
 from io import BytesIO
-import os
 
-# CONFIGURACIÓN
-modo_descarga = "combinado"  # Opciones: "combinado", "individual", "ambos"
-output_folder = "resoluciones_individuales"
-output_combined = "resoluciones_vigentes_combinadas.pdf"
+# === CONFIGURACIÓN === 
+MODO_DESCARGA = "combinado"  # Opciones: "combinado", "individual", "ambos"
+OUTPUT_FORLDER = "resoluciones_individuales"
+OUTPUT_COMBINED = "resoluciones_vigentes_combinadas.pdf"
+BASE_URL = "https://www.sipen.gob.do/resoluciones/resoluciones-de-la-sipen?page="
+MAX_PAGES = 50
 
-# Preparar carpeta si es necesario
-if modo_descarga in ["individual", "ambos"]:
+# === SETUP ===
+if modo_descarga in {"individual", "ambos"}:
     os.makedirs(output_folder, exist_ok=True)
 
-merged_pdf = PdfMerger()
-vigentes_count = 0
+def fetch_html(url):
+    try:
+        r = requests.get(url,timeout=10)
+        r.raise_for_status()
+        return r.text
+    except requests.RequestsException as e:
+        print(f"Error fetching {url}: {e}")
+        return None
 
-base_url = "https://www.sipen.gob.do/resoluciones/resoluciones-de-la-sipen?page="
-
-for page in range(1, 50):
-    url = f"{base_url}{page}"
-    response = requests.get(url)
-    if response.status_code != 200:
-        print(f"Error en la página {page}")
-        continue
-
+def extract_vigente_pdfs(html):
     soup = BeautifulSoup(response.text, "html.parser")
     rows = soup.select("table#normativa tbody tr")
-
+    
     for row in rows:
         cols = row.find_all("td")
         if len(cols) < 5:
             continue
+        if cols[3].text.strip().lower() != "vigente":
+            continue
+        link_tag = cols[4].find("a")
+        if not link_tag or "href" not in link_tag.attrs:
+            continue
+        yield link_tag["href"]
 
-        estatus = cols[3].text.strip().lower()
-        if estatus == "vigente":
-            pdf_tag = cols[4].find("a")
-            if pdf_tag and "href" in pdf_tag.attrs:
-                pdf_url = pdf_tag["href"]
-                filename = pdf_url.split("/")[-1]
+def download_pdf(url):
+    try:
+        r = requests.get(url, timeout=15)
+        r.raise_for_status()
+        return BytesIO(r.content)
+    except requests.RequestException as e:
+        print(f"Error downloading {url}: {e}")
+        return None
 
-                try:
-                    pdf_response = requests.get(pdf_url)
-                    pdf_file = BytesIO(pdf_response.content)
+def is_valid_pdf(file_like):
+    try:
+        PdfReader(file_like)
+        file_like.seek(0)
+        return True
+    except Exception as e:
+        print(f"Invalid PDF: {e}")
+        return False
 
-                    # Validar que el PDF pueda ser leído
-                    try:
-                        PdfReader(pdf_file)
-                        pdf_file.seek(0)
 
-                        # Si modo incluye combinado
-                        if modo_descarga in ["combinado", "ambos"]:
-                            merged_pdf.append(pdf_file)
+def save_pdf(file_like, filename):
+    with open(filename, "wb") as f:
+        f.write(file_like.read())
 
-                        # Si modo incluye individuales
-                        if modo_descarga in ["individual", "ambos"]:
-                            with open(os.path.join(output_folder, filename), "wb") as f:
-                                f.write(pdf_file.read())
+def main():
+    merger = PdfMerger()
+    count = 0
 
-                        vigentes_count += 1
-                        print(f"Agregado: {filename}")
+    for page in range(1, MAX_PAGES + 1):
+        html = fetch_html(f"{BASE_URL}{page}")
+        if not html:
+            continue
 
-                    except Exception as parse_error:
-                        print(f"PDF inválido (omitido): {pdf_url} - {parse_error}")
+        for pdf_url in extract_vigente_pdfs(html):
+            filename = os.path.basename(pdf_url)
+            pdf_file = download_pdf(pdf_url)
 
-                except Exception as e:
-                    print(f"Error al procesar {pdf_url}: {e}")
+            if not pdf_file or not is_valid_pdf(pdf_file):
+                continue
 
-# Guardar el PDF combinado si aplica
-if modo_descarga in ["combinado", "ambos"]:
-    with open(output_combined, "wb") as f:
-        merged_pdf.write(f)
-    merged_pdf.close()
-    print(f"\nArchivo combinado generado: {output_combined}")
+            if MODO_DESCARGA in {"combinado", "ambos"}:
+                merger.append(pdf_file)
+                pdf_file.seek(0)
 
-print(f"\nProceso completado. Total resoluciones vigentes agregadas: {vigentes_count}")
+            if MODO_DESCARGA in {"individual", "ambos"}:
+                save_pdf(pdf_file, os.path.join(OUTPUT_FOLDER, filename))
+
+            count += 1
+            print(f"Agregado: {filename}")
+
+    if MODO_DESCARGA in {"combinado", "ambos"}:
+        with open(OUTPUT_COMBINED, "wb") as f:
+            merger.write(f)
+        merger.close()
+        print(f"\nArchivo combinado generado: {OUTPUT_COMBINED}")
+
+    print(f"\nProceso completado. Total resoluciones vigentes agregadas: {count}")
+
+if __name__ == "__main__":
+    main()
