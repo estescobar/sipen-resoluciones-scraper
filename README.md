@@ -64,6 +64,8 @@ python resoluciones_sipen.py
 - Archivo de referencia para investigadores, profesionales del sector financiero o legal.
     
 - Integración en flujos de trabajo automatizados de análisis normativo.
+
+- Cargar las resoluciones a IA. 
     
 
 ---
