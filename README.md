@@ -85,11 +85,12 @@ python resoluciones_sipen.py
 
 ¿Ideas para mejorar? ¿Algún problema técnico?
 
-Puedes abrir un issue o escribirme por LinkedIn: [Tu perfil de LinkedIn aquí]
+Puedes abrir un issue o escribirme por LinkedIn: [estescobar](https://www.linkedin.com/in/estescobar/)
 
 ---
 
 ## 🔖 Fuente de los datos
 
-Superintendencia de Pensiones (SIPEN):  
-[https://www.sipen.gob.do](https://www.sipen.gob.do/)
+Superintendencia de Pensiones (SIPEN):
+[https://www.sipen.gob.do/resoluciones/resoluciones-de-la-sipen](https://www.sipen.gob.do/resoluciones/resoluciones-de-la-sipen)
+
