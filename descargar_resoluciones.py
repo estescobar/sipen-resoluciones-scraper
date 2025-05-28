@@ -4,7 +4,7 @@ from PyPDF2 import PdfMerger, PdfReader
 from io import BytesIO
 import os
 
-# 🔧 CONFIGURACIÓN
+# CONFIGURACIÓN
 modo_descarga = "combinado"  # Opciones: "combinado", "individual", "ambos"
 output_folder = "resoluciones_individuales"
 output_combined = "resoluciones_vigentes_combinadas.pdf"
